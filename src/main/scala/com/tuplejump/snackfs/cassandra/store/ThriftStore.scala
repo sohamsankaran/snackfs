@@ -97,6 +97,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
     val ksDef = buildSchema
     val prom = promise[Keyspace]()
     val ksDefFuture = AsyncUtil.executeAsync[describe_keyspace_call](client.describe_keyspace(ksDef.getName, _))
+    println("describe_keyspace: createKeyspace")
 
     ksDefFuture onSuccess {
       case p =>
@@ -111,6 +112,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
           log.debug("Creating new keyspace %s", ksDef.getName)
           val response = AsyncUtil.executeAsync[system_add_keyspace_call](
             client.system_add_keyspace(ksDef, _))
+            println("system_add_keyspace: createKeyspace")
 
           response.onSuccess {
             case r =>
@@ -146,6 +148,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
     client =>
       val prom = promise[Unit]()
       val dropFuture = AsyncUtil.executeAsync[system_drop_keyspace_call](client.system_drop_keyspace(configuration.keySpace, _))
+      println("system_drop_keyspace: dropKeyspace")
 
       dropFuture onSuccess {
         case p =>
@@ -284,6 +287,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       val timestamp = iNode.timestamp
       val mutationMap: Map[ByteBuffer, java.util.Map[String, java.util.List[Mutation]]] = generateMutationforINode(data, path, timestamp)
       val iNodeFuture = AsyncUtil.executeAsync[batch_mutate_call](client.batch_mutate(mutationMap, configuration.writeConsistencyLevel, _))
+      println("batch_mutate: storeINode")
       val prom = promise[GenericOpSuccess]()
       iNodeFuture.onSuccess {
         case p =>
@@ -302,6 +306,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
   private def performGet(client: AsyncClient, key: ByteBuffer, columnPath: ColumnPath): Future[ColumnOrSuperColumn] = {
     val prom = promise[ColumnOrSuperColumn]()
+    //println("pget")
     val getFuture = AsyncUtil.executeAsync[get_call](client.get(key, columnPath, configuration.readConsistencyLevel, _))
 
     getFuture.onSuccess {
@@ -334,6 +339,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       val inodePromise = promise[INode]()
       log.debug("fetching Inode for path %s", path)
       val pathInfo = performGet(client, pathKey, inodeDataPath)
+      println("get: retrieveINode")
 
       pathInfo.onSuccess {
         case p =>
@@ -363,6 +369,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       val prom = promise[GenericOpSuccess]()
       val subBlockFuture = AsyncUtil.executeAsync[insert_call](
         client.insert(parentBlockId, sblockParent, column, configuration.writeConsistencyLevel, _))
+        println("insert: store subBlock")
 
       subBlockFuture.onSuccess {
         case p =>
@@ -385,6 +392,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       log.debug("fetching subBlock for path %s", subBlockId.toString)
 
       val subBlockFuture = performGet(client, blockIdBuffer, new ColumnPath(BLOCK_COLUMN_FAMILY_NAME).setColumn(subBlockIdBuffer))
+      println("get: retrieveSubBlock")
       val prom = promise[InputStream]()
 
       subBlockFuture.onSuccess {
@@ -418,6 +426,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
       val deleteInodeFuture = AsyncUtil.executeAsync[remove_call](
         client.remove(pathKey, iNodeColumnPath, timestamp, configuration.writeConsistencyLevel, _))
+        println("insert: remove deleteInode")
 
       deleteInodeFuture.onSuccess {
         case p =>
@@ -442,6 +451,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
       val deleteFuture = AsyncUtil.executeAsync[batch_mutate_call](
         client.batch_mutate(mutationMap, configuration.writeConsistencyLevel, _))
+        println("batch_mutate: store deleteBlocks")
 
       deleteFuture.onSuccess {
         case p =>
@@ -509,6 +519,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       val indexClause = new IndexClause(indexExpr, ByteBufferUtil.EMPTY_BYTE_BUFFER, 100000)
       val rowFuture = AsyncUtil.executeAsync[get_indexed_slices_call](
         client.get_indexed_slices(iNodeParent, indexClause, pathPredicate, configuration.readConsistencyLevel, _))
+        println("get_indexed_slices: fetch paths")
 
       val result = promise[Set[Path]]()
 
@@ -555,6 +566,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
           val ringFuture = AsyncUtil.executeAsync[describe_ring_call](
             client.describe_ring(configuration.keySpace, _)
           )
+          println("describe_ring: getBlockLocations")
 
 
           ringFuture.onSuccess {
@@ -634,6 +646,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
     val addColumnFuture = AsyncUtil.executeAsync[insert_call](
       client.insert(key, columnParent, column, ConsistencyLevel.QUORUM, _))
+      println("insert: addLockColumn")
 
     log.debug("adding column")
     addColumnFuture
@@ -647,6 +660,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
     val getRowFuture = AsyncUtil.executeAsync[get_slice_call](
       client.get_slice(key, columnParent, slicePredicate, ConsistencyLevel.QUORUM, _))
+      println("get_slice: getLockRow")
 
     log.debug("getting row")
     getRowFuture
@@ -709,6 +723,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
     val deleteLockFuture = AsyncUtil.executeAsync[remove_call](
       client.remove(getPathKey(path), columnPath, timestamp, ConsistencyLevel.QUORUM, _))
+      println("remove: deleteLockRow")
 
     deleteLockFuture
   }
