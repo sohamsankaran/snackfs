@@ -94,6 +94,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
     val ksDef = buildSchema
     val mayBeKsDef = Try(client.describe_keyspace(ksDef.getName))
+    println("describe_keyspace: createKeyspace")
 
     val ret: Try[Keyspace] = mayBeKsDef map {
       kd =>
@@ -103,6 +104,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       case ex: Throwable =>
         log.debug("Creating new keyspace %s", ksDef.getName)
         val r = client.system_add_keyspace(ksDef)
+        println("system_add_keyspace: createKeyspace")
 
         log.debug("Created keyspace %s", ksDef.getName)
         new Keyspace(r)
@@ -129,6 +131,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
   def dropKeyspace: Try[String] = executeWithClient({
     client =>
       val mayBeDropped = Try(client.system_drop_keyspace(configuration.keySpace))
+      println("system_drop_keyspace: dropKeyspace")
       mayBeDropped
   })
 
@@ -256,6 +259,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       val timestamp = iNode.timestamp
       val mutationMap: Map[ByteBuffer, java.util.Map[String, java.util.List[Mutation]]] = generateMutationforINode(data, path, timestamp)
       val mayBeINode = Try(client.batch_mutate(mutationMap, configuration.writeConsistencyLevel))
+      println("batch_mutate: storeINode")
       mayBeINode map {
         u =>
           log.debug("stored INode %s", iNode.toString)
@@ -265,6 +269,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
   private def performGet(client: Client, key: ByteBuffer, columnPath: ColumnPath): Try[ColumnOrSuperColumn] = {
     val mayBeColumn = Try(client.get(key, columnPath, configuration.readConsistencyLevel))
+    println("->get: performGet")
     mayBeColumn
   }
 
@@ -275,6 +280,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
       log.debug("fetching Inode for path %s", path)
       val mayBePathInfo = performGet(client, pathKey, inodeDataPath)
+      println("*performGet: retrieveINode")
 
       val result: Try[INode] = mayBePathInfo map {
         col: ColumnOrSuperColumn =>
@@ -296,6 +302,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
         .setTimestamp(System.currentTimeMillis)
 
       val mayBeSubBlock = Try(client.insert(parentBlockId, sblockParent, column, configuration.writeConsistencyLevel))
+      println("insert: storeSubBlock")
 
       mayBeSubBlock map {
         u =>
@@ -311,6 +318,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       log.debug("fetching subBlock for path %s", subBlockId.toString)
 
       val mayBeSubBlock = performGet(client, blockIdBuffer, new ColumnPath(BLOCK_COLUMN_FAMILY_NAME).setColumn(subBlockIdBuffer))
+      println("*performGet: retrieveSubBlock")
 
       mayBeSubBlock.map {
         col: ColumnOrSuperColumn =>
@@ -332,6 +340,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       val timestamp = System.currentTimeMillis
 
       val mayBeDeleted = Try(client.remove(pathKey, iNodeColumnPath, timestamp, configuration.writeConsistencyLevel))
+      println("remove: deleteINode")
 
       mayBeDeleted map {
         u =>
@@ -347,6 +356,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
       val mayBeDeleted = Try(
         client.batch_mutate(mutationMap, configuration.writeConsistencyLevel))
+        println("batch_mutate: deleteBlocks")
 
       mayBeDeleted.map {
         u =>
@@ -409,6 +419,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
 
       val mayBeRow = Try(
         client.get_range_slices(iNodeParent, pathPredicate, keyRange, configuration.readConsistencyLevel))
+        println("get_range_slices: fetchPaths")
 
       mayBeRow map {
         col =>
@@ -441,6 +452,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
           log.debug("found iNode for %s, getting block locations", path)
           //Get the ring description from the server
           val mayBeRing = Try(client.describe_ring(configuration.keySpace))
+          println("describe_ring: getBlockLocations")
           mayBeRing map {
             r =>
               log.debug("fetched ring details for keyspace %s", configuration.keySpace)
@@ -503,6 +515,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
       .setTimestamp(System.currentTimeMillis())
 
     val mayBeAdded = Try(client.insert(key, columnParent, column, ConsistencyLevel.QUORUM))
+    println("insert: addLockColumn")
     mayBeAdded map {
       u =>
         log.debug("adding column")
@@ -517,6 +530,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
     val slicePredicate = new SlicePredicate().setColumn_names(null).setSlice_range(sliceRange)
 
     val mayBeRow = Try(client.get_slice(key, columnParent, slicePredicate, ConsistencyLevel.QUORUM))
+    println("get_slice: getLockRow")
     mayBeRow
   }
 
@@ -565,6 +579,7 @@ class ThriftStore(configuration: SnackFSConfiguration) extends FileSystemStore {
     val timestamp = System.currentTimeMillis
 
     val mayBeDeleted = Try(client.remove(getPathKey(path), columnPath, timestamp, ConsistencyLevel.QUORUM))
+    println("remove: deleteLockRow")
 
     mayBeDeleted
   }
