@@ -76,6 +76,9 @@ object SnackfsBuild extends Build {
   )
 
   lazy val snackSettings = Project.defaultSettings ++ Seq(
+    
+    scalaVersion := "2.10.3",
+    
     name := "snackfs",
 
     organization := "com.tuplejump",
